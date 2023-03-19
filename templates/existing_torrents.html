@@ -1,0 +1,34 @@
+{% extends "bulma-with-navbar.html" %}
+
+{% block content %}
+<table class="table is-fullwidth is-hoverable" id="torrentlist">
+  <thead>
+    <tr>
+      <th></th>
+      <th><a href="#" onclick="sortBy('NAME')">Torrent Name</a></th>
+      <th><a href="#" onclick="sortBy('SIZE')">Torrent Size</a></th>
+      <th><a href="#" onclick="sortBy('TORRENTX')">Is TorrentX</a></th>
+      <th><a href="#" onclick="sortBy('LEECHERS')">Connected Leechers</a></th>
+      <th><a href="#" onclick="sortBy('SEEDERS')">Connected Seeders</a></th>
+      <th><a href="#"></a></th> <!--a blank elemnt so the download buttons will be covered-->
+    </tr>
+  </thead>
+  <tbody>
+    {% for torrent in torrents %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>{{ torrent.name }}</td>
+      <td>{{ torrent.size }}</td>
+      <td>{{ "Yes" if torrent.is_torrentx else "No" }}</td>
+      <td>{{ torrent.leechers }}</td>
+      <td>{{ torrent.seeders }}</td>
+      <td><a href="#" class="button is-primary is-small">Download</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script>
+
+
+{% endblock %}

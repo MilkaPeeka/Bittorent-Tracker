@@ -1,0 +1,46 @@
+{% extends "bulma-with-navbar.html" %}
+
+{% block content %}
+<table class="table is-fullwidth is-hoverable" id="userlist">
+  <thead>
+    <tr>
+      <th><a href="#" onclick="sortBy('IP')">IP</a></th>
+      <th><a href="#" onclick="sortBy('CLIENT')">Torrent Client</a></th>
+      <th><a href="#" onclick="sortBy('FAKE_PERCENT')">Fake Suspect Precentage</a></th>
+      <th>Shared Torrents</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for user in users %}
+    <tr>
+      <td>{{ user.ip }}</td>
+      <td>{{ user.client }}</td>
+      <td>{{ user.fake_percent }} %</td>
+      <td>
+        <button class="button is-primary is-small" onclick="toggleSharedTorrents({{ loop.index }})">
+          <span>Show/Hide</span>
+          <span class="icon">
+            <i class="fas fa-chevron-down"></i>
+          </span>
+        </button>
+        <ul class="is-hidden" id="shared_torrents_{{ loop.index }}">
+          {% for torrent in user.shared_torrents %}
+          <li>{{ torrent }}</li>
+          {% endfor %}
+        </ul>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script>
+  function toggleSharedTorrents(index) {
+    var sharedTorrents = document.getElementById('shared_torrents_' + index);
+    sharedTorrents.classList.toggle('is-hidden');
+    var buttonIcon = sharedTorrents.previousElementSibling.querySelector('.icon');
+    buttonIcon.classList.toggle('fa-chevron-down');
+    buttonIcon.classList.toggle('fa-chevron-up');
+  }
+</script>
+{% endblock %}
