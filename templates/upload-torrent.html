@@ -4,6 +4,7 @@
   <div class="container">
     <div class="columns is-centered">
       <div class="column is-half">
+        
         <form method="POST" enctype="multipart/form-data">
           <div class="field">
             <label class="label">Torrent Name</label>
@@ -14,7 +15,7 @@
           <div class="field">
             <div class="file has-name is-fullwidth">
               <label class="file-label">
-                <input class="file-input" type="file" name="torrent" required accept=".torrentx,.torrent ">
+              <input class="file-input" type="file" name="torrent" required accept=".torrentx,.torrent " onchange="document.getElementById('filename').textContent = this.files[0].name">
                 <span class="file-cta">
                   <span class="file-icon">
                     <i class="fas fa-upload"></i>
@@ -23,7 +24,7 @@
                     Select torrent file...
                   </span>
                 </span>
-                <span class="file-name">
+                <span class="file-name" id="filename">
                   No file selected.
                 </span>
               </label>
@@ -32,6 +33,7 @@
           <div class="field">
             <div class="control">
               <button class="button is-primary is-fullwidth" type="submit">Upload Torrent</button>
+              <p class="mt-3">If submission is successful - torrent file with the correct infohash will be downloaded</p>
             </div>
           </div>
         </form>

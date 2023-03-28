@@ -1,23 +1,57 @@
-from flask import Flask, render_template, request
+"""
+TODO:
+
+1. Add support for displaying size
+2. Store torrents' data in a better manner
+3. Uploading torrents and showing them in homescreen
+4. Implement "torrent fakeness" tests for regular torrents
+5. Implement the same for torrentx
+6. Implement tracker url
+"""
+
+from flask import Flask, render_template, request, flash, redirect, url_for, make_response
+
+from FileHandler import FileHandler
+from TorrentLog import TorrentLog
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'mysecretkey'
 
-@app.route('/')
-def index():
-    return render_template('main-page.html')
+fh = FileHandler("logs_db.py")
+
+@app.route('/announce/')
+def announce():
+    raw_data = request.args
+    print(raw_data)
+    for torrent in fh.get_torrents():
+        if torrent.info_hash == raw_data.get('info_hash'):
+            print("lol")
+            print(torrent.size)
+
+        
+    return b''
 
 @app.route('/upload_torrent', methods=['GET', 'POST'])
 def upload_torrent():
     if request.method == 'POST':
-        torrent_file = request.files['torrent']
+        torrent_file = request.files['torrent'].read()
         torrent_name = request.form['name']
-        # do something with the uploaded file and form data
-        return "Torrent uploaded successfully."
+
+        added_torrent_log = TorrentLog(torrent_file, torrent_name)
+        added_torrent_log.repack(url_for('index', _external=True) + 'announce/') # replacing whatever announce url with ours
+        fh.add_torrent(added_torrent_log)
+        
+        flash('Torrent uploaded successfully. ', 'danger')
+        response = make_response(added_torrent_log.bencoded_info)
+        # Set the headers for the response
+        response.headers.set('Content-Disposition', f'attachment; filename={torrent_name}-TrackerVersion-.torrent')
+        response.headers.set('Content-Type', 'application/bittorrent')
+
+        return response
     else:
-        # display form
         return render_template('upload-torrent.html')
 
-@app.route('/show_torrents')
+@app.route('/')
 def show_torrents():
     torrents = [
         {"name": "Torrent 1", "size": "10 MB", "is_torrentx": True, "leechers": 5, "seeders": 2},

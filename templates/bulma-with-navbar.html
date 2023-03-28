@@ -1,15 +1,15 @@
 <!doctype html>
 <html>
   <head>
-    <title>{% block title %}My App{% endblock %}</title>
+    <title>{% block title %}TorrentX Tracker{% endblock %}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.2/css/bulma.min.css">
   </head>
   <body>
     <nav class="navbar is-dark" role="navigation" aria-label="main navbar">
-      <div class="navbar-menu">
+      <div class="navbar-menu is-centered">
         <div class="navbar-brand">
-          <a class="navbar-item" href="{{ url_for('index') }}">
-            <div style="background-color: black; width: 25px; height: 25px;"></div>
+          <a class="navbar-item" href="{{ url_for('show_torrents') }}">
+            <span class="navbar-item-title">My TorrentX Tracker</span>
           </a>
         </div>
         <div class="navbar-end">
