@@ -9,27 +9,35 @@ TODO:
 6. Implement tracker url
 """
 
-from flask import Flask, render_template, request, flash, redirect, url_for, make_response
-
+from flask import Flask, render_template, request, url_for, make_response
 from FileHandler import FileHandler
 from TorrentLog import TorrentLog
-
+import urllib
+import binascii
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'mysecretkey'
+app.templates_auto_reload = 10
 
 fh = FileHandler("logs_db.py")
 
 @app.route('/announce/')
 def announce():
-    raw_data = request.args
-    print(raw_data)
-    for torrent in fh.get_torrents():
-        if torrent.info_hash == raw_data.get('info_hash'):
-            print("lol")
-            print(torrent.size)
+    qs = request.query_string
+    qs = urllib.parse.unquote(qs)
+    # qs = qs.replace("%", "%25")
+    # qs = qs.replace("\ufffd", r"")
+    qs = urllib.parse.parse_qs(qs)
+    info_hash = qs['info_hash'][0]
+    hex_info_hash = binascii.hexlify(info_hash.encode())
+    print(hex_info_hash)
+    return qs
 
-        
-    return b''
+
+
+    encoded_info_hash_url = urllib.parse.unquote(encoded_info_hash_url)
+    encoded_info_hash_url = encoded_info_hash_url.replace('%', '%25')
+    hex_info_hash = binascii.hexlify(encoded_info_hash_url.encode('utf-8')).decode('ascii')
+    return hex_info_hash
 
 @app.route('/upload_torrent', methods=['GET', 'POST'])
 def upload_torrent():
@@ -38,10 +46,9 @@ def upload_torrent():
         torrent_name = request.form['name']
 
         added_torrent_log = TorrentLog(torrent_file, torrent_name)
-        added_torrent_log.repack(url_for('index', _external=True) + 'announce/') # replacing whatever announce url with ours
+        added_torrent_log.repack(url_for('show_torrents', _external=True) + 'announce/') # replacing whatever announce url with ours
         fh.add_torrent(added_torrent_log)
         
-        flash('Torrent uploaded successfully. ', 'danger')
         response = make_response(added_torrent_log.bencoded_info)
         # Set the headers for the response
         response.headers.set('Content-Disposition', f'attachment; filename={torrent_name}-TrackerVersion-.torrent')
