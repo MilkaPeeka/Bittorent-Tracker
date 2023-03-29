@@ -19,33 +19,32 @@ app.config['SECRET_KEY'] = 'mysecretkey'
 
 fh = FileHandler("logs.db")
 
+def get_infohash_from_announce(full_log_in_bytes):
+    full_log = full_log_in_bytes.decode('utf-8')
+
+    info_hash_part = full_log.split('&')[0] # ?info_hash=mG%95%DE%E7%0a%EB%88%E0%3eS6%CA%7c%9F%CF%0a%1e%20m
+    info_hash_part = info_hash_part.replace("info_hash=","")
+    info_hash = info_hash_part.replace('$', '%24').upper()
+    return info_hash
+
+
+def get_torrent_from_info_hash(url_encoded_infohash):
+    for torrent in fh.get_torrents():
+        urlencoded = urllib.parse.quote(torrent.info_hash).upper()
+        if urlencoded == url_encoded_infohash:
+            return torrent
+        
+    return None
 
 @app.route('/announce/')
 def announce():
-    qs = request.query_string
-    qs = qs.decode('utf-8')
-    qs = qs.split("=")[1]
-    qs = qs.replace('$', '%24').upper()
-    info_hash = qs
-    print(info_hash)
+    announce_ip = request.remote_addr
+    announce_log = request.args
+    announced_torrent_info_hash = get_infohash_from_announce(request.query_string)
+    torrent = get_torrent_from_info_hash(announced_torrent_info_hash)
 
-    for torrent in fh.get_torrents():
-        urlencoded = urllib.parse.quote(torrent.info_hash).upper()
-        if urlencoded == info_hash:
-            print("lol")
+    return "OK" if torrent else "NOT GOOD"
 
-        else:
-            print(urlencoded)
-
-
-    return info_hash
-
-
-
-    # for torrent in fh.get_torrents():
-    #     print(len(torrent.info_hash))
-
-    return info_hash
 
 @app.route('/upload_torrent', methods=['GET', 'POST'])
 def upload_torrent():
