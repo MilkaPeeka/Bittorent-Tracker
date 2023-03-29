@@ -16,28 +16,36 @@ import urllib
 import binascii
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'mysecretkey'
-app.templates_auto_reload = 10
 
-fh = FileHandler("logs_db.py")
+fh = FileHandler("logs.db")
+
 
 @app.route('/announce/')
 def announce():
     qs = request.query_string
-    qs = urllib.parse.unquote(qs)
-    # qs = qs.replace("%", "%25")
-    # qs = qs.replace("\ufffd", r"")
-    qs = urllib.parse.parse_qs(qs)
-    info_hash = qs['info_hash'][0]
-    hex_info_hash = binascii.hexlify(info_hash.encode())
-    print(hex_info_hash)
-    return qs
+    qs = qs.decode('utf-8')
+    qs = qs.split("=")[1]
+    qs = qs.replace('$', '%24').upper()
+    info_hash = qs
+    print(info_hash)
+
+    for torrent in fh.get_torrents():
+        urlencoded = urllib.parse.quote(torrent.info_hash).upper()
+        if urlencoded == info_hash:
+            print("lol")
+
+        else:
+            print(urlencoded)
+
+
+    return info_hash
 
 
 
-    encoded_info_hash_url = urllib.parse.unquote(encoded_info_hash_url)
-    encoded_info_hash_url = encoded_info_hash_url.replace('%', '%25')
-    hex_info_hash = binascii.hexlify(encoded_info_hash_url.encode('utf-8')).decode('ascii')
-    return hex_info_hash
+    # for torrent in fh.get_torrents():
+    #     print(len(torrent.info_hash))
+
+    return info_hash
 
 @app.route('/upload_torrent', methods=['GET', 'POST'])
 def upload_torrent():

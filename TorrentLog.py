@@ -17,8 +17,7 @@ class TorrentLog:
 
     @property
     def info_hash(self):
-        return hashlib.sha1(self.bencoded_info).digest()
-
+        return hashlib.sha1(encode(decode(self.bencoded_info)[0][b'info'])).digest()
 
     @property
     def size(self):
@@ -47,11 +46,6 @@ class TorrentLog:
         for announcement_log in self.announcements_logs:
             pass
 
-        
-
-    def get_size(self):
-        decoded = decode(self.bencoded_info)[0]
-        return 12
 
 """
 From that class we could store each torrent uploaded to our tracker. By looking into the announcement log, we could build a "peer announcement" list and by using that we could check if a peer sharing data is fake or not
