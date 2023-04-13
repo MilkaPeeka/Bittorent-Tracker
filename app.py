@@ -12,8 +12,11 @@ TODO:
 from flask import Flask, render_template, request, url_for, make_response
 from FileHandler import FileHandler
 from TorrentLog import TorrentLog
+from AnnounceLog import AnnounceLog
+import re
 import urllib
-import binascii
+import datetime
+from bencoding import encode
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'mysecretkey'
 
@@ -36,14 +39,54 @@ def get_torrent_from_info_hash(url_encoded_infohash):
         
     return None
 
+
+def return_response():
+    # need to return interval and a peer list
+    to_ret = {
+        "interval": 1800,
+
+        "peers": 
+            {"ip": "127.0.0.1",
+            "port": 25565}
+
+
+    }
+
+    return encode(to_ret)
+
+def get_relevant_info_from_announce(full_log_in_bytes):
+    full_log = full_log_in_bytes.decode('utf-8')
+    # need to save event, uploaded, downloaded
+    uploaded = re.search(r'&uploaded=([0-9]+)', full_log).group(1)
+    port = re.search(r'&port=([0-9]+)', full_log).group(1)
+    downloaded = re.search(r'&downloaded=([0-9]+)', full_log).group(1)
+    event = re.search(r'&event=([a-zA-Z]+)', full_log)
+    if event:
+        event = event.group(1)
+    else:
+        event = "resume"
+
+    return int(port), event, int(uploaded), int(downloaded)
+    
+
+
 @app.route('/announce/')
 def announce():
     announce_ip = request.remote_addr
-    announce_log = request.args
+    announce_log = get_relevant_info_from_announce(request.query_string)
     announced_torrent_info_hash = get_infohash_from_announce(request.query_string)
     torrent = get_torrent_from_info_hash(announced_torrent_info_hash)
 
-    return "OK" if torrent else "NOT GOOD"
+    # First we will update the torrent witht the announce content and then return a response
+    
+    newly_announced = AnnounceLog(datetime.datetime.now(), announce_ip, *announce_log)
+
+    torrent.add_announcement(newly_announced)
+
+    print(torrent.get_announcement_peers())
+    print(torrent.get_peers())
+
+    return return_response()
 
 
 @app.route('/upload_torrent', methods=['GET', 'POST'])
@@ -67,11 +110,11 @@ def upload_torrent():
 
 @app.route('/')
 def show_torrents():
-    torrents = [
-        {"name": "Torrent 1", "size": "10 MB", "is_torrentx": True, "leechers": 5, "seeders": 2},
-        {"name": "Torrent 2", "size": "5 GB", "is_torrentx": False, "leechers": 10, "seeders": 3},
-        {"name": "Torrent 3", "size": "2.3 GB", "is_torrentx": True, "leechers": 2, "seeders": 8},
-    ]
+    torrents = [{"name": torrent.torrent_name,
+                 "size": torrent.size,
+                 "is_torrentx": torrent.is_torrentx,
+                 "leechers": 4,
+                 "seeders": 3} for torrent in fh.get_torrents()]
     
     # Render the template with the data
     return render_template("existing_torrents.html", torrents=torrents)
