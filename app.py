@@ -19,6 +19,9 @@ import datetime
 from bencoding import encode
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'mysecretkey'
+import socket   
+hostname=socket.gethostname()   
+IPAddr=socket.gethostbyname(hostname)   
 
 fh = FileHandler("logs.db")
 
@@ -96,7 +99,7 @@ def upload_torrent():
         torrent_name = request.form['name']
 
         added_torrent_log = TorrentLog(torrent_file, torrent_name)
-        added_torrent_log.repack(url_for('show_torrents', _external=True) + 'announce/') # replacing whatever announce url with ours
+        added_torrent_log.repack(IPAddr +'/announce/') # replacing whatever announce url with ours
         fh.add_torrent(added_torrent_log)
         
         response = make_response(added_torrent_log.bencoded_info)

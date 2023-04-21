@@ -36,6 +36,7 @@ class TorrentLog:
         # that function will repack the bencoded torrent into a fitting bencode
         decoded = decode(self.bencoded_info)[0]
         decoded[b'announce'] = new_announce_url.encode()
+        decoded[b'torrentx'] = ''.encode()
         self.bencoded_info = encode(decoded)
 
 
