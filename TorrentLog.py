@@ -57,7 +57,6 @@ class TorrentLog:
 
 
     def get_peers(self):
-        
         return set(f'{announce.peer_ip}:{announce.port}' for announce in self.announcements_logs)
 
 

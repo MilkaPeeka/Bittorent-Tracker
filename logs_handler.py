@@ -5,7 +5,7 @@ Instead of taking care of torrent handling (getting sorted list, adding torrent 
 we will create a torrent handler that will take care of that in every operation
 """
 
-class FileHandler:
+class LogHandler:
     def __init__(self, db_filename) -> None:
         self.torrent_db = dctodb(TorrentLog, db_filename)
         self.torrent_list = self.torrent_db.fetch_all()

@@ -10,7 +10,7 @@ TODO:
 """
 
 from flask import Flask, render_template, request, url_for, make_response
-from FileHandler import FileHandler
+from logs_handler import LogHandler
 from TorrentLog import TorrentLog
 from AnnounceLog import AnnounceLog
 import re
@@ -18,12 +18,11 @@ import urllib
 import datetime
 from bencoding import encode
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'mysecretkey'
-import socket   
-hostname=socket.gethostname()   
-IPAddr=socket.gethostbyname(hostname)   
+app.config['SECRET_KEY'] = 'mysecretkey'   
+IPAddr="192.168.1.41"  
+announce_port = 25565
 
-fh = FileHandler("logs.db")
+lh = LogHandler("logs.db")
 
 def get_infohash_from_announce(full_log_in_bytes):
     full_log = full_log_in_bytes.decode('utf-8')
@@ -99,8 +98,8 @@ def upload_torrent():
         torrent_name = request.form['name']
 
         added_torrent_log = TorrentLog(torrent_file, torrent_name)
-        added_torrent_log.repack(IPAddr +'/announce/') # replacing whatever announce url with ours
-        fh.add_torrent(added_torrent_log)
+        added_torrent_log.repack("udp://" + IPAddr +f':{announce_port}') # replacing whatever announce url with ours
+        lh.add_torrent(added_torrent_log)
         
         response = make_response(added_torrent_log.bencoded_info)
         # Set the headers for the response
@@ -117,7 +116,7 @@ def show_torrents():
                  "size": torrent.size,
                  "is_torrentx": torrent.is_torrentx,
                  "leechers": 4,
-                 "seeders": 3} for torrent in fh.get_torrents()]
+                 "seeders": 3} for torrent in lh.get_torrents()]
     
     # Render the template with the data
     return render_template("existing_torrents.html", torrents=torrents)
