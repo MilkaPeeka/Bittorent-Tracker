@@ -8,6 +8,6 @@ class AnnounceLog:
     event: str
     downloaded: int
     uploaded: int
-    seeders: int
-    leechers: int
+    seeders: int = -1
+    leechers: int = -1
     index: int = 0

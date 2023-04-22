@@ -27,7 +27,7 @@ torrentX suggested tests:
 """
 from TorrentLog import TorrentLog
 from typing import List
-from AnnounceLog import AnnounceLog
+from announce_log import AnnounceLog
 
 
 def get_announcements_with_matching_attribute(announce_log_list: List[AnnounceLog], attr: str, value: str) -> List[List[AnnounceLog]]:

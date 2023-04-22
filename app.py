@@ -12,7 +12,7 @@ TODO:
 from flask import Flask, render_template, request, url_for, make_response
 from logs_handler import LogHandler
 from TorrentLog import TorrentLog
-from AnnounceLog import AnnounceLog
+from announce_log import AnnounceLog
 import re
 import urllib
 import datetime
@@ -34,7 +34,7 @@ def get_infohash_from_announce(full_log_in_bytes):
 
 
 def get_torrent_from_info_hash(url_encoded_infohash):
-    for torrent in fh.get_torrents():
+    for torrent in lh.get_torrents():
         urlencoded = urllib.parse.quote(torrent.info_hash).upper()
         if urlencoded == url_encoded_infohash:
             return torrent

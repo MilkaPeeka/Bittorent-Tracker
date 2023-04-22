@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 import hashlib
 from typing import List
 from bencoding import decode, encode
-from AnnounceLog import AnnounceLog
+from announce_log import AnnounceLog
 """
 TODO:
 1. remove peers that are more than 2 hours old (4 announcements old)
@@ -55,9 +55,8 @@ class TorrentLog:
 
         return group
 
-
     def get_peers(self):
-        return set(f'{announce.peer_ip}:{announce.port}' for announce in self.announcements_logs)
+        return set((announce.peer_ip,announce.port) for announce in self.announcements_logs)
 
 
 """

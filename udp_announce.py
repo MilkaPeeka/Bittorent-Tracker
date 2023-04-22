@@ -3,9 +3,12 @@ import asyncio
 import struct
 import random
 import string
+import datetime
+from socket import inet_aton
 from logs_handler import LogHandler
-
+from announce_log import AnnounceLog
 lh = LogHandler("logs.db")
+interval = 60 * 10
 IPAddr="192.168.1.41"  
 announce_port = 25565
 PROT_ID = 0x41727101980
@@ -31,26 +34,70 @@ def parse_announce_struct(payload):
     return struct.unpack("! q i 4s 20s 20s q q q i i i i H i x", payload)
 
 
-
 def on_msg(payload, addr):
     conn_id, action, trans_id, info_hash, peer_id, downloaded, left, uploaded, event, ip, rand_key, numwant, port, extensions = parse_announce_struct(payload)
 
     if ip == 0:
         ip = addr[0]
 
-    peer_torrent_addr = (ip, port)
-
+    announcer_torrent_addr = (ip, port)
     selected_torrent = None
     for torrent in lh.get_torrents():
         if torrent.info_hash == info_hash:
             selected_torrent = torrent
+            print("found torrent")
             break
 
 
     if selected_torrent == None:
-        # no respond as it is invalid
+        return None
+    
+    match event:
+        case 2:
+            event = "start"
+        case 3:
+            event = "stop"
+        case 1:
+            event = "finish"
+        case 0:
+            event = "resume"
 
-        pass
+    # now we have all the data needed, we have the torrent we need. We just need to update the torrent data and then return peer list to the user
+
+    log = AnnounceLog(datetime.datetime.now(), ip, port, event, downloaded, uploaded)
+
+    torrent.add_announcement(log)
+
+    # after we saved the log we can now send a response
+
+    response_to_announcer = construct_response(trans_id, torrent, announcer_torrent_addr)
+
+    return response_to_announcer
+
+def construct_response(trans_id, torrent, announcer_torrent_addr):
+    # we need to return interval, seeders, leechers and peer_list
+
+    peers = torrent.get_peers() # a set where each entry is {ip, port}
+    addr_list = []
+    for peer in peers:
+        if peer == announcer_torrent_addr:
+            continue
+    
+        addr_struct = inet_aton(peer[0]) + struct.pack('! H', peer[1])
+        addr_list.append(addr_struct)
+
+
+    # 4 bytes action
+    # 4 bytes trans_id
+    # 4 bytes interval
+    # 4 bytes leechers
+    # 4 bytes seeders
+    tracker_data = struct.pack('! i 4s i i i', 0, trans_id, interval, 1,1)
+
+    addr_list_as_bytes = b''.join([addr for addr in addr_list])
+
+    return tracker_data + addr_list_as_bytes
+
 
 def random_bytes(length):
     # Generate a random string of lowercase letters
@@ -86,9 +133,9 @@ async def main():
                 local_conn.send(to_send_back, addr)
 
             else:
-                print(msg)
-                on_msg(msg, addr)
-        
+                resp = on_msg(msg, addr)
+                local_conn.send(resp, addr)
+                
         await asyncio.sleep(1)
 
 
