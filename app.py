@@ -1,94 +1,51 @@
-"""
-TODO:
-
-1. Add support for displaying size
-2. Store torrents' data in a better manner
-3. Uploading torrents and showing them in homescreen
-4. Implement "torrent fakeness" tests for regular torrents
-5. Implement the same for torrentx
-6. Implement tracker url
-"""
-
-from flask import Flask, render_template, request, url_for, make_response
+from flask import Flask, render_template, request, make_response
 from logs_handler import LogHandler
 from TorrentLog import TorrentLog
-from announce_log import AnnounceLog
-import re
-import urllib
-import datetime
 from bencoding import encode
+import threading
+import udp_announce
+import settings
+from users import Users, return_json
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'mysecretkey'   
-IPAddr="192.168.1.41"  
-announce_port = 25565
-
 lh = LogHandler("logs.db")
 
-def get_infohash_from_announce(full_log_in_bytes):
-    full_log = full_log_in_bytes.decode('utf-8')
+threading.Thread(target=udp_announce.start).start()
 
-    info_hash_part = full_log.split('&')[0] # ?info_hash=mG%95%DE%E7%0a%EB%88%E0%3eS6%CA%7c%9F%CF%0a%1e%20m
-    info_hash_part = info_hash_part.replace("info_hash=","")
-    info_hash = info_hash_part.replace('$', '%24').upper()
-    return info_hash
-
-
-def get_torrent_from_info_hash(url_encoded_infohash):
-    for torrent in lh.get_torrents():
-        urlencoded = urllib.parse.quote(torrent.info_hash).upper()
-        if urlencoded == url_encoded_infohash:
-            return torrent
-        
-    return None
-
-
-def return_response():
-    # need to return interval and a peer list
-    to_ret = {
-        "interval": 1800,
-
-        "peers": 
-            {"ip": "127.0.0.1",
-            "port": 25565}
+def format_size(size_in_bytes):
+    # Define the units and their corresponding sizes in bytes
+    units = {"B": 0, "KB": 1, "MB": 2, "GB": 3, "TB": 4}
+    # Initialize the size and unit
+    size = size_in_bytes
+    unit = "B"
+    # Loop through the units, dividing the size by 1024 until it's less than 1024
+    for unit_name, unit_size in units.items():
+        if size < 1024:
+            unit = unit_name
+            break
+        size /= 1024
+    # Return the size with the appropriate unit
+    return f"{size:.2f} {unit}"
 
 
-    }
+# @app.route('/announce/')
+# def announce():
+#     announce_ip = request.remote_addr
+#     announce_log = get_relevant_info_from_announce(request.query_string)
+#     announced_torrent_info_hash = get_infohash_from_announce(request.query_string)
+#     torrent = get_torrent_from_info_hash(announced_torrent_info_hash)
 
-    return encode(to_ret)
-
-def get_relevant_info_from_announce(full_log_in_bytes):
-    full_log = full_log_in_bytes.decode('utf-8')
-    # need to save event, uploaded, downloaded
-    uploaded = re.search(r'&uploaded=([0-9]+)', full_log).group(1)
-    port = re.search(r'&port=([0-9]+)', full_log).group(1)
-    downloaded = re.search(r'&downloaded=([0-9]+)', full_log).group(1)
-    event = re.search(r'&event=([a-zA-Z]+)', full_log)
-    if event:
-        event = event.group(1)
-    else:
-        event = "resume"
-
-    return int(port), event, int(uploaded), int(downloaded)
+#     # First we will update the torrent witht the announce content and then return a response
     
+#     newly_announced = AnnounceLog(datetime.datetime.now(), announce_ip, *announce_log)
 
+#     torrent.add_announcement(newly_announced)
 
-@app.route('/announce/')
-def announce():
-    announce_ip = request.remote_addr
-    announce_log = get_relevant_info_from_announce(request.query_string)
-    announced_torrent_info_hash = get_infohash_from_announce(request.query_string)
-    torrent = get_torrent_from_info_hash(announced_torrent_info_hash)
+#     print(torrent.get_announcement_peers())
+#     print(torrent.get_peers())
 
-    # First we will update the torrent witht the announce content and then return a response
-    
-    newly_announced = AnnounceLog(datetime.datetime.now(), announce_ip, *announce_log)
-
-    torrent.add_announcement(newly_announced)
-
-    print(torrent.get_announcement_peers())
-    print(torrent.get_peers())
-
-    return return_response()
+#     return return_response()
 
 
 @app.route('/upload_torrent', methods=['GET', 'POST'])
@@ -98,12 +55,12 @@ def upload_torrent():
         torrent_name = request.form['name']
 
         added_torrent_log = TorrentLog(torrent_file, torrent_name)
-        added_torrent_log.repack("udp://" + IPAddr +f':{announce_port}') # replacing whatever announce url with ours
+        added_torrent_log.repack("udp://" + settings.IP +f':{settings.PORT}') # replacing whatever announce url with ours
         lh.add_torrent(added_torrent_log)
         
         response = make_response(added_torrent_log.bencoded_info)
         # Set the headers for the response
-        response.headers.set('Content-Disposition', f'attachment; filename={torrent_name}-TrackerVersion-.torrent')
+        response.headers.set('Content-Disposition', f'attachment; filename={torrent_name}-custom-.torrent')
         response.headers.set('Content-Type', 'application/bittorrent')
 
         return response
@@ -113,39 +70,38 @@ def upload_torrent():
 @app.route('/')
 def show_torrents():
     torrents = [{"name": torrent.torrent_name,
-                 "size": torrent.size,
+                 "size": format_size(torrent.size),
                  "is_torrentx": torrent.is_torrentx,
-                 "leechers": 4,
-                 "seeders": 3} for torrent in lh.get_torrents()]
+                 "leechers": get_leechers(torrent),
+                 "seeders": get_seeders(torrent)} for torrent in lh.get_torrents()]
     
     # Render the template with the data
     return render_template("existing_torrents.html", torrents=torrents)
 
 @app.route('/show_users')
 def show_users():
-    # Dummy user data for testing
-    users = [
-        {
-            'ip': '192.168.1.1',
-            'client': 'uTorrent',
-            'fake_percent': 0.0,
-            'shared_torrents': ['Movie1.torrent', 'Movie2.torrent']
-        },
-        {
-            'ip': '192.168.1.2',
-            'client': 'qBittorrent',
-            'fake_percent': 10.5,
-            'shared_torrents': ['TV1.torrent', 'TV2.torrent', 'Music1.torrent']
-        },
-        {
-            'ip': '192.168.1.3',
-            'client': 'Transmission',
-            'fake_percent': 2.3,
-            'shared_torrents': ['Movie1.torrent', 'Movie3.torrent', 'Game1.torrent']
-        }
-    ]
-    
+    users_handler = Users(lh)
+    users = return_json(users_handler.build_user_list_from_torrents())
     return render_template('show_users.html', users=users)
+
+@app.route('/download/<torrent_name>')
+def download_requested_torrent(torrent_name):
+    # Your code to download the torrent here
+
+    t = None
+    for torrent in lh.get_torrents():
+        if torrent.torrent_name == torrent_name:
+            t = torrent
+            break
+    
+
+    response = make_response(t.bencoded_info)
+    # Set the headers for the response
+    response.headers.set('Content-Disposition', f'attachment; filename={torrent_name}-custom-.torrent')
+    response.headers.set('Content-Type', 'application/bittorrent')
+
+    return response
+    
 
 
 if __name__ == '__main__':

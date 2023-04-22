@@ -8,14 +8,11 @@ from socket import inet_aton
 from logs_handler import LogHandler
 from announce_log import AnnounceLog
 lh = LogHandler("logs.db")
-interval = 60 * 10
-IPAddr="192.168.1.41"  
-announce_port = 25565
+import settings
 PROT_ID = 0x41727101980
 
 def parse_announce_struct(payload):
     # this is what we get when someone announces to us
-
     # 8 bytes conn_id
     # 4 bytes action. will be 1 for announce
     # 4 bytes trans_id
@@ -92,7 +89,7 @@ def construct_response(trans_id, torrent, announcer_torrent_addr):
     # 4 bytes interval
     # 4 bytes leechers
     # 4 bytes seeders
-    tracker_data = struct.pack('! i 4s i i i', 0, trans_id, interval, 1,1)
+    tracker_data = struct.pack('! i 4s i i i', 0, trans_id, settings.INTERVAL, 1,1)
 
     addr_list_as_bytes = b''.join([addr for addr in addr_list])
 
@@ -117,7 +114,7 @@ def validate_conn_request():
 
 
 async def main():
-    local_conn = await aioudp.open_local_endpoint(IPAddr, announce_port)
+    local_conn = await aioudp.open_local_endpoint(settings.IP, settings.PORT)
     print("started announce udp server")
     while True:
         try:
@@ -139,4 +136,5 @@ async def main():
         await asyncio.sleep(1)
 
 
-asyncio.run(main())
+def start():
+    asyncio.run(main())

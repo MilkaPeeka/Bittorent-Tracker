@@ -29,7 +29,7 @@ class TorrentLog:
     
     @property
     def is_torrentx(self):
-        return False
+        return b'torrentx' in decode(self.bencoded_info)[0]
     
 
     def repack(self, new_announce_url):

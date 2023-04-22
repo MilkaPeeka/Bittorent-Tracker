@@ -22,7 +22,7 @@
       <td>{{ "Yes" if torrent.is_torrentx else "No" }}</td>
       <td>{{ torrent.leechers }}</td>
       <td>{{ torrent.seeders }}</td>
-      <td><a href="#" class="button is-primary is-small">Download</a></td>
+      <td><a href="{{ url_for('download_requested_torrent', torrent_name=torrent.name) }}" class="button is-primary is-small">Download</a></td>
     </tr>
     {% endfor %}
   </tbody>
