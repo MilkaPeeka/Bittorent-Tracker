@@ -1,3 +1,30 @@
+"""
+Discarded - most tracker only support udp announce.
+The way I achieved http announce was too cumbersome anyways
+"""
+
+
+# @app.route('/announce/')
+# def announce():
+#     announce_ip = request.remote_addr
+#     announce_log = get_relevant_info_from_announce(request.query_string)
+#     announced_torrent_info_hash = get_infohash_from_announce(request.query_string)
+#     torrent = get_torrent_from_info_hash(announced_torrent_info_hash)
+
+#     # First we will update the torrent witht the announce content and then return a response
+    
+#     newly_announced = AnnounceLog(datetime.datetime.now(), announce_ip, *announce_log)
+
+#     torrent.add_announcement(newly_announced)
+
+#     print(torrent.get_announcement_peers())
+#     print(torrent.get_peers())
+
+#     return return_response()
+
+
+
+
 # import urllib
 # from logs_handler import LogHandler
 

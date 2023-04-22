@@ -1,3 +1,8 @@
+"""
+TODO:
+1. add support for checking for torrentx in udp announce. that way we could get leechers in seeders when starting to announce
+
+"""
 from flask import Flask, render_template, request, make_response
 from logs_handler import LogHandler
 from TorrentLog import TorrentLog
@@ -6,6 +11,7 @@ import threading
 import udp_announce
 import settings
 from users import Users, return_json
+import itertools
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'mysecretkey'   
@@ -28,25 +34,37 @@ def format_size(size_in_bytes):
     # Return the size with the appropriate unit
     return f"{size:.2f} {unit}"
 
-
-# @app.route('/announce/')
-# def announce():
-#     announce_ip = request.remote_addr
-#     announce_log = get_relevant_info_from_announce(request.query_string)
-#     announced_torrent_info_hash = get_infohash_from_announce(request.query_string)
-#     torrent = get_torrent_from_info_hash(announced_torrent_info_hash)
-
-#     # First we will update the torrent witht the announce content and then return a response
+def filter_last_entry_by_peer_ip(announce_log_list):
+    # Sort the list by peer_ip and log_time
+    announce_log_list_sorted = sorted(announce_log_list, key=lambda x: (x.peer_ip, x.log_time))
     
-#     newly_announced = AnnounceLog(datetime.datetime.now(), announce_ip, *announce_log)
+    # Group the list by peer_ip
+    grouped_by_peer_ip = itertools.groupby(announce_log_list_sorted, key=lambda x: x.peer_ip)
+    
+    # Create a new list with only the last entry of each unique peer_ip
+    last_entry_list = [list(group)[-1] for key, group in grouped_by_peer_ip]
+    
+    return last_entry_list
 
-#     torrent.add_announcement(newly_announced)
 
-#     print(torrent.get_announcement_peers())
-#     print(torrent.get_peers())
+def get_leechers_count(torrent):
+    last_entry_for_every_peer_ip = filter_last_entry_by_peer_ip(torrent.announcements_logs)
+    count = 0
+    for announce_log in last_entry_for_every_peer_ip:
+        if announce_log.downloaded < torrent.size:
+            count+=1
 
-#     return return_response()
+    return count
 
+def get_seeders_count(torrent):
+    last_entry_for_every_peer_ip = filter_last_entry_by_peer_ip(torrent.announcements_logs)
+    count = 0
+    for announce_log in last_entry_for_every_peer_ip:
+        if announce_log.downloaded == torrent.size:
+            count+=1
+
+    return count
+    
 
 @app.route('/upload_torrent', methods=['GET', 'POST'])
 def upload_torrent():
@@ -72,8 +90,8 @@ def show_torrents():
     torrents = [{"name": torrent.torrent_name,
                  "size": format_size(torrent.size),
                  "is_torrentx": torrent.is_torrentx,
-                 "leechers": get_leechers(torrent),
-                 "seeders": get_seeders(torrent)} for torrent in lh.get_torrents()]
+                 "leechers": get_leechers_count(torrent),
+                 "seeders": get_seeders_count(torrent)} for torrent in lh.get_torrents()]
     
     # Render the template with the data
     return render_template("existing_torrents.html", torrents=torrents)
