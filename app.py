@@ -3,15 +3,20 @@ TODO:
 1. add support for checking for torrentx in udp announce. that way we could get leechers in seeders when starting to announce
 
 """
-from flask import Flask, render_template, request, make_response
+from flask import Flask, render_template, request, make_response, redirect, url_for, flash
 from logs_handler import LogHandler
 from TorrentLog import TorrentLog
 from bencoding import encode
 import threading
 import udp_announce
-import settings
+import hashlib
+import json
 from users import Users, return_json
 import itertools
+
+with open("settings.json", "r") as f:
+    settings = json.load(f)
+
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'mysecretkey'   
@@ -73,7 +78,7 @@ def upload_torrent():
         torrent_name = request.form['name']
 
         added_torrent_log = TorrentLog(torrent_file, torrent_name)
-        added_torrent_log.repack("udp://" + settings.IP +f':{settings.PORT}') # replacing whatever announce url with ours
+        added_torrent_log.repack("udp://" + settings["IP"] +f':{settings["PORT"]}') # replacing whatever announce url with ours
         lh.add_torrent(added_torrent_log)
         
         response = make_response(added_torrent_log.bencoded_info)
@@ -96,11 +101,38 @@ def show_torrents():
     # Render the template with the data
     return render_template("existing_torrents.html", torrents=torrents)
 
+@app.route('/delete/<torrent_name>', methods=['POST'])
+def delete_torrent(torrent_name):
+    entered_code = request.form.get('code')
+    if hashlib.sha256(entered_code.encode()).hexdigest() != settings["PASS_HASH"]:
+        flash("Incorrect code entered. Please try again.", "error")
+    else:
+        # delete the torrent
+        t = None
+        for torrent in lh.get_torrents():
+            if torrent.torrent_name == torrent_name:
+                t = torrent
+            break
+        lh.delete_torrent(t)
+        flash("Torrent has been successfully deleted.", "success")
+    
+    return redirect(url_for('show_torrents'))
+
+
+
+
+
+
+    
+
 @app.route('/show_users')
 def show_users():
     users_handler = Users(lh)
     users = return_json(users_handler.build_user_list_from_torrents())
     return render_template('show_users.html', users=users)
+
+
+    
 
 @app.route('/download/<torrent_name>')
 def download_requested_torrent(torrent_name):

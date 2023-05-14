@@ -20,8 +20,9 @@ class LogHandler:
             return True
         return False
 
-    def delete_torrent(self):
-        pass
+    def delete_torrent(self, to_delete):
+        self.torrent_list.remove(to_delete)
+        self.torrent_db.delete(to_delete)
 
     def get_torrents(self):
         return self.torrent_list

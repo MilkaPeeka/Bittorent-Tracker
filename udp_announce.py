@@ -7,9 +7,16 @@ import datetime
 from socket import inet_aton
 from logs_handler import LogHandler
 from announce_log import AnnounceLog
+import json
+
 lh = LogHandler("logs.db")
-import settings
 PROT_ID = 0x41727101980
+
+with open("settings.json", "r") as f:
+    settings = json.load(f)
+
+
+
 
 def parse_announce_struct(payload):
     # this is what we get when someone announces to us
@@ -89,7 +96,7 @@ def construct_response(trans_id, torrent, announcer_torrent_addr):
     # 4 bytes interval
     # 4 bytes leechers
     # 4 bytes seeders
-    tracker_data = struct.pack('! i 4s i i i', 0, trans_id, settings.INTERVAL, 1,1)
+    tracker_data = struct.pack('! i 4s i i i', 0, trans_id, settings["INTERVAL"], 1,1)
 
     addr_list_as_bytes = b''.join([addr for addr in addr_list])
 
@@ -114,7 +121,7 @@ def validate_conn_request():
 
 
 async def main():
-    local_conn = await aioudp.open_local_endpoint(settings.IP, settings.PORT)
+    local_conn = await aioudp.open_local_endpoint(settings["IP"], settings["PORT"])
     print("started announce udp server")
     while True:
         try:
