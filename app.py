@@ -6,23 +6,27 @@ TODO:
 from flask import Flask, render_template, request, make_response, redirect, url_for, flash
 from logs_handler import LogHandler
 from TorrentLog import TorrentLog
-from bencoding import encode
+
+import socket
 import threading
 import udp_announce
 import hashlib
 import json
+import pathlib
 from users import Users, return_json
 import itertools
 
-with open("settings.json", "r") as f:
-    settings = json.load(f)
-
+settings = None
+settings_path = pathlib.Path("settings.json")
+if settings_path.exists():
+    with open("settings.json", "r") as f:
+        settings = json.load(f)
+    threading.Thread(target=udp_announce.start, args=(settings,)).start()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'mysecretkey'   
 lh = LogHandler("logs.db")
 
-threading.Thread(target=udp_announce.start).start()
 
 def format_size(size_in_bytes):
     # Define the units and their corresponding sizes in bytes
@@ -92,6 +96,10 @@ def upload_torrent():
 
 @app.route('/')
 def show_torrents():
+    if not settings_path.exists():
+        return redirect(url_for('on_first_startup'))
+    
+
     torrents = [{"name": torrent.torrent_name,
                  "size": format_size(torrent.size),
                  "is_torrentx": torrent.is_torrentx,
@@ -100,6 +108,35 @@ def show_torrents():
     
     # Render the template with the data
     return render_template("existing_torrents.html", torrents=torrents)
+
+
+@app.route('/on_startup',  methods=['GET', 'POST'])
+def on_first_startup():
+    ip_address = socket.gethostbyname(socket.getfqdn())
+    port = 9889
+    if request.method == 'POST':
+        ip_address = request.remote_addr
+        port = request.form['port']
+        passw = request.form['admin_password']
+
+        global settings
+
+        settings = {"IP": ip_address,
+                    "PORT": int(port),
+                    "PASS_HASH": hashlib.sha256(passw.encode()).hexdigest()}
+        
+        with open(settings_path, "w") as f:
+            json.dump(settings, f)
+
+        threading.Thread(target=udp_announce.start, args=(settings,)).start()
+
+
+        return redirect(url_for('show_torrents'))
+
+    return render_template('startup.html', ip_address=ip_address, port=port)
+
+
+
 
 @app.route('/delete/<torrent_name>', methods=['POST'])
 def delete_torrent(torrent_name):
@@ -155,4 +192,4 @@ def download_requested_torrent(torrent_name):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=False, port=5000)

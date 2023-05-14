@@ -11,13 +11,6 @@ import json
 
 lh = LogHandler("logs.db")
 PROT_ID = 0x41727101980
-
-with open("settings.json", "r") as f:
-    settings = json.load(f)
-
-
-
-
 def parse_announce_struct(payload):
     # this is what we get when someone announces to us
     # 8 bytes conn_id
@@ -120,7 +113,7 @@ def validate_conn_request():
     return validation_msg
 
 
-async def main():
+async def main(settings):
     local_conn = await aioudp.open_local_endpoint(settings["IP"], settings["PORT"])
     print("started announce udp server")
     while True:
@@ -143,5 +136,5 @@ async def main():
         await asyncio.sleep(1)
 
 
-def start():
-    asyncio.run(main())
+def start(settings):
+    asyncio.run(main(settings))

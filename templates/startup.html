@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>First Time Startup</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.5/css/bulma.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">First Time Startup</h1>
+        <p>Hey there! We noticed this is the first time you start the tracker. Please fill the info as needed. Notice that everything listed here is mandatory.</p>
+        <form method="POST">
+            <div class="field">
+                <label class="label">IP Address</label>
+                <div class="control">
+                    <input class="input" type="text" name="ip_address" value="{{ ip_address }}" required>
+                </div>
+            </div>
+            <div class="field">
+                <label class="label">Port</label>
+                <div class="control">
+                    <input class="input" type="text" name="port" placeholder="9889" value="{{ port }}" required>
+                </div>
+            </div>
+            <div class="field">
+                <label class="label">Admin Password</label>
+                <div class="control">
+                    <input class="input" type="password" name="admin_password" placeholder="Enter password" value="{{ admin_password }}" required>
+                </div>
+            </div>
+            <div class="field is-grouped">
+                <div class="control">
+                    <button class="button is-primary" type="submit">Submit</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

@@ -48,7 +48,7 @@
         <button class="button is-danger is-small" onclick="showConfirm('{{ torrent.name }}')">Delete</button>
         <div id="confirm{{ torrent.name }}" style="display: none;">
           <form action="{{ url_for('delete_torrent', torrent_name=torrent.name) }}" method="post">
-            <input type="text" placeholder="Enter code" id="code{{ torrent.name }}" name="code">
+            <input type="password" placeholder="Enter code" id="code{{ torrent.name }}" name="code">
             <button type="submit" class="button is-primary">Confirm</button>
           </form>
         </div>
