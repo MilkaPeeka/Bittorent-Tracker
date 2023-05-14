@@ -28,6 +28,21 @@ torrentX suggested tests:
 from TorrentLog import TorrentLog
 from typing import List
 from announce_log import AnnounceLog
+import aioudp
+
+
+async def gather_hashes_for_torrent(torrent):
+    index = rand
+    offset = rand
+    length = rand
+
+    tasks = []
+    for peer in torrent.get_peers():
+        
+
+    pass
+
+
 
 
 def get_announcements_with_matching_attribute(announce_log_list: List[AnnounceLog], attr: str, value: str) -> List[List[AnnounceLog]]:

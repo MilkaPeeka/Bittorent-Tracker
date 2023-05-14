@@ -7,7 +7,7 @@ import datetime
 from socket import inet_aton
 from logs_handler import LogHandler
 from announce_log import AnnounceLog
-import json
+import socket
 
 lh = LogHandler("logs.db")
 PROT_ID = 0x41727101980
@@ -31,7 +31,7 @@ def parse_announce_struct(payload):
     return struct.unpack("! q i 4s 20s 20s q q q i i i i H i x", payload)
 
 
-def on_msg(payload, addr):
+def on_msg(settings, payload, addr):
     conn_id, action, trans_id, info_hash, peer_id, downloaded, left, uploaded, event, ip, rand_key, numwant, port, extensions = parse_announce_struct(payload)
 
     if ip == 0:
@@ -67,11 +67,11 @@ def on_msg(payload, addr):
 
     # after we saved the log we can now send a response
 
-    response_to_announcer = construct_response(trans_id, torrent, announcer_torrent_addr)
+    response_to_announcer = construct_response(settings, trans_id, torrent, announcer_torrent_addr)
 
     return response_to_announcer
 
-def construct_response(trans_id, torrent, announcer_torrent_addr):
+def construct_response(settings, trans_id, torrent, announcer_torrent_addr):
     # we need to return interval, seeders, leechers and peer_list
 
     peers = torrent.get_peers() # a set where each entry is {ip, port}
@@ -108,9 +108,82 @@ def validate_conn_request():
     connection_id = random.randint(0, 2**32 - 1)
 
     # Create a validation message
-    validation_msg = struct.pack(">QLL", connection_id, 0x0, 0x12345678)
+    validation_msg = struct.pack("! q l l", connection_id, 0x0, 0x12345678)
 
     return validation_msg
+
+async def on_regular_torrent_handshake(settings, local_conn, addr):
+    print("handshake regular")
+    to_send_back = validate_conn_request()
+    local_conn.send(to_send_back, addr)
+    await local_conn.drain()
+
+    msg, addr = await asyncio.wait_for(local_conn.receive(), 1)
+
+    resp = on_msg(settings, msg, addr)
+    local_conn.send(resp, addr)
+    await local_conn.drain()
+
+def parse_torrentx_begin(msg):
+    # conn id - 8 bytes
+    # trans_id - 4 bytes
+    # peer_id - 12 bytes
+    # port - 2 bytes
+    return struct.unpack("! q i 12s h", msg)    
+
+def parse_torrentx_list(msg):
+    #### FOR EACH TORRENT:
+    # 20 bytes - info hash
+    # 4 bytes - seeders
+    # 4 bytes - leechers
+    # 4 bytes - downloaded
+    # 4 bytes - uploaded
+    # 1 byte - announce type
+
+    torrents = []
+
+
+    struct_list = [msg[i:i+27] for i in range(0, len(msg), 27)]
+
+    for strct in struct_list:
+         torrents.append(struct.unpack("! 20s i i i i b", strct))
+
+    return torrents
+
+async def on_torrentx_handshake(settings, local_conn, addr):
+    to_send_back = validate_conn_request()
+    local_conn.send(to_send_back, addr)
+    await local_conn.drain()
+
+    msg, addr = await asyncio.wait_for(local_conn.receive(), 1)
+    
+    conn_id, trans_id, peer_id, port = parse_torrentx_begin(msg[:26])
+    torrent_list = parse_torrentx_list(msg[26:])
+
+    announce_resp = b""
+
+    for info_hash, seeders, leechers, downloaded, uploaded, announce_type in torrent_list:
+        t = None
+        for torrent in lh.get_torrents():
+            if torrent.info_hash == info_hash:
+                t = torrent
+                break
+
+        if not t:
+            announce_resp += struct.pack("! i i ", 0, 0)
+            continue
+
+        announce_log = AnnounceLog(datetime.datetime.now(), addr, port, announce_type, downloaded, uploaded, seeders, leechers)
+        t.add_announcement(announce_log)
+        announce_resp += struct.pack("! i i", len(t.get_peers()), 0) # need to fix it and find out how to put both seeders and leechers
+        peers = t.get_peers()
+        for peer in peers:
+            announce_resp += socket.inet_aton(peer[0]) + struct.pack("! h", peer[1])
+
+    
+    local_conn.send(announce_resp, addr)
+    await local_conn.drain()
+
 
 
 async def main(settings):
@@ -122,18 +195,15 @@ async def main(settings):
 
         except TimeoutError:
             msg = None
-        
-        if msg:
-            if struct.unpack('! q', msg[:8])[0] == PROT_ID:
-                print("handshake")
-                to_send_back = validate_conn_request()
-                local_conn.send(to_send_back, addr)
 
-            else:
-                resp = on_msg(msg, addr)
-                local_conn.send(resp, addr)
-                
-        await asyncio.sleep(1)
+        if msg:
+            recv_prot_id = struct.unpack('! q', msg[:8])[0]
+            if recv_prot_id == PROT_ID:
+                await on_regular_torrent_handshake(settings, local_conn, addr)
+            elif recv_prot_id == PROT_ID+1:
+                await on_torrentx_handshake(settings, local_conn, addr)
+
+        await asyncio.sleep(0.4)
 
 
 def start(settings):
