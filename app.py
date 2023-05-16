@@ -5,7 +5,7 @@ TODO:
 """
 from flask import Flask, render_template, request, make_response, redirect, url_for, flash
 from logs_handler import LogHandler
-from TorrentLog import TorrentLog
+from torrent_log import TorrentLog
 
 import socket
 import threading

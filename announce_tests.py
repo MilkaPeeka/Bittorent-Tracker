@@ -25,25 +25,76 @@ torrentX suggested tests:
  
 
 """
-from TorrentLog import TorrentLog
+from torrent_log import TorrentLog
 from typing import List
 from announce_log import AnnounceLog
 import aioudp
+import struct
+import asyncio
+
+import random
+
+def gen_piece_hash_struct(torrent, index, offset, length):
+    info_hash = torrent.info_hash
+
+    return struct.pack("! i b 20s i i i 20s", 20 + 20 + 4 + 4 + 4 + 1, 3, info_hash, index, offset, length, bytes([0] * 20))
 
 
-async def gather_hashes_for_torrent(torrent):
-    index = rand
-    offset = rand
-    length = rand
+async def gather_hashes_for_torrent_test(torrent):
+    pieces_amount = torrent.piece_list_len
+    piece_size = torrent.piece_size
+    index = random.randint(0, pieces_amount - 1) # we will never ask for last piece because it may be shorter than regular piece size
+    offset = random.randint(0, piece_size) 
+    length = random.randint(0, piece_size - offset) # we will want the offset + chosen length < piece size
 
-    tasks = []
-    for peer in torrent.get_peers():
-        
-
-    pass
+    piece_hash_msg = gen_piece_hash_struct(torrent, index, offset, length)
 
 
+    tasks = [ask_and_wait_for_hash(peer.split(':'), piece_hash_msg) for peer in torrent.get_peers()]
 
+    results = await asyncio.gather(*tasks)
+
+    hash_counts = {}
+    for result in results:
+        if result is None:
+            continue
+
+        if result in hash_counts:
+            hash_counts[result] += 1
+        else:
+            hash_counts[result] = 1
+
+    most_common_hash = max(hash_counts, key=hash_counts.get)
+    
+    if hash_counts[most_common_hash] < (len([result for result in results if result is not None]) / 2):
+        print("too many unhonest peers, cant determine nothing")
+        return
+    
+    peer_result = dict()
+    
+    for result, peer in zip(results, torrent.get_peers()):
+        if result is None:
+            continue
+
+        peer_result[peer] = (result == most_common_hash)
+    
+    return peer_result
+
+async def ask_and_wait_for_hash(peer_addr, piece_hash_msg):
+    try:
+        conn_with_peer = await asyncio.wait_for(aioudp.open_remote_endpoint(*peer_addr), 1)
+    except TimeoutError:
+        return None
+    conn_with_peer.send(piece_hash_msg)
+    await conn_with_peer.drain()
+
+    try:
+        res = await asyncio.wait_for(conn_with_peer.receive(), 1)
+        return res
+    
+    except TimeoutError:
+        return None
+    
 
 def get_announcements_with_matching_attribute(announce_log_list: List[AnnounceLog], attr: str, value: str) -> List[List[AnnounceLog]]:
     matching_announcements = []
@@ -64,6 +115,8 @@ def get_announcements_with_matching_attribute(announce_log_list: List[AnnounceLo
 def calculate_time_difference_seconds(announce_log1: AnnounceLog, announce_log2: AnnounceLog) -> int:
     time_diff = announce_log2.log_time - announce_log1.log_time
     return int(time_diff.total_seconds())
+
+
 class AnnounceTest:
     def __init__(self, torrent: TorrentLog, seeders_threshold, leechers_threshold) -> None:
         self.torrent = torrent
@@ -201,11 +254,3 @@ class AnnounceTest:
 
         return True
     
-
-
-class tracketTests:
-    @classmethod
-    def checkIsPeer(cls, ip):
-        return True
-# a class that will help us do server-wide operations, for example: checking if an IP address is a peer
-

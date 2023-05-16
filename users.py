@@ -3,48 +3,45 @@ from logs_handler import LogHandler
 class User:
     def __init__(self, addr) -> None:
         self.addr = addr
-        self.torrents_in_share = []
+        self.fake_ratio = 0
+        self.tests_count = 0
 
-    def add_torrent(self, torrent_name):
-        self.torrents_in_share.append(torrent_name)
 
 class Users:
-    def __init__(self, log_handler : LogHandler) -> None:
+    def __init__(self, log_handler: LogHandler, user_handler: UserHandler) -> None:
         self.log_handler = log_handler
+        self.user_handler = user_handler
 
-    def users_test(self):
-        # runs a test on every user 
-        pass
+    def test_users(self):
+        for user in self.user_handler.get_users():
 
-    def build_user_list_from_torrents(self):
+
+            
+
+    def build_user_dict_from_torrents(self):
         # builds the user list from torrents
-        total_addrs = []
 
+        users = {user:list() for user in self.user_handler.get_users()}
         for torrent in self.log_handler.get_torrents():
-            total_addrs += torrent.get_peers()
+            for peer in torrent.get_peers():
+                if peer in [user.addr for user in users.keys()]:
+                    self.users[peer].append(torrent)
+                else:
+                    # we will create a user object if thats a new peer
+                    self.users[peer] = [torrent]
+                    self.user_handler.add(User(peer))
+
+        return users
         
-        
-        total_addrs = set(total_addrs)
 
-        user_list = [User(addr) for addr in total_addrs]
-
-        for user in user_list:
-            for torrent in self.log_handler.get_torrents():
-                if user.addr in torrent.get_peers():
-                    user.add_torrent(torrent.torrent_name)
-
-
-        return user_list
-    
-
-def return_json(user_list):
+def return_json(users_dict):
     users = []
 
-    for user in user_list:
+    for user, torrents in users_dict.items():
         users.append({
             'ip': user.addr,
-            'fake_precent': 0.0,
-            'shared_torrents': user.torrents_in_share
+            'fake_precent': round(user.fake_ratio * 100 , 2),
+            'shared_torrents': torrents
         })
 
     return users

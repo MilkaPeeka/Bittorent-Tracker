@@ -1,4 +1,4 @@
-from TorrentLog import TorrentLog
+from torrent_log import TorrentLog
 from dctodb import dctodb
 """
 Instead of taking care of torrent handling (getting sorted list, adding torrent to list and database, remove from list and database etc)

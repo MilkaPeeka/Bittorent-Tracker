@@ -19,6 +19,16 @@ class TorrentLog:
     @property
     def info_hash(self):
         return hashlib.sha1(encode(decode(self.bencoded_info)[0][b'info'])).digest()
+    
+    @property
+    def piece_list_len(self):
+        decoded = decode(self.bencoded_info)[0][b'info']
+        return len(decoded[b'pieces']) / 20 # total bytes divided by 20 bytes a piece hash
+
+    @property
+    def piece_size(self):
+        decoded = decode(self.bencoded_info)[0][b'info']
+        return decoded[b'piece length']
 
     @property
     def size(self):
