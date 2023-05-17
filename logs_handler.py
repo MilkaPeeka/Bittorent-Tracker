@@ -2,6 +2,7 @@ from torrent_log import TorrentLog
 from users import User
 import time
 from dctodb import dctodb
+import threading
 """
 Instead of taking care of torrent handling (getting sorted list, adding torrent to list and database, remove from list and database etc)
 we will create a torrent handler that will take care of that in every operation
@@ -55,7 +56,7 @@ class LogHandler:
         return None
 
 
-    def update_loop(self):
+    def _update_loop(self):
         print("started io thread")
         while True:
             self.torrent_db.action_to_db(self.torrent_db.update, *self.torrent_list)
@@ -63,4 +64,6 @@ class LogHandler:
             time.sleep(1)
 
     
-
+    def start_update_loop(self):
+        threading.Thread(target=self._update_loop).start()
+    

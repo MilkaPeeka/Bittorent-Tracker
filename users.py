@@ -4,8 +4,17 @@ from dataclasses import dataclass
 class User:
     addr: str
     fake_ratio: int = 0
-    tests_count: int = 0
+    test_successes: int = 0 
+    test_failures: int = 0
     index: int = 0
+
+    def add_test(self, test_res):
+        if test_res == True:
+            self.test_successes += 1
+        else:
+            self.test_successes += 1
+
+        self.fake_ratio = self.test_failures / (self.test_failures + self.test_successes)
 
 
 class Users:

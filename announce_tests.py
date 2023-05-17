@@ -5,7 +5,6 @@ from announce_log import AnnounceLog
 import aioudp
 import struct
 import asyncio
-import itertools
 import random
 
 def gen_piece_hash_struct(torrent, index, offset, length):
@@ -13,46 +12,6 @@ def gen_piece_hash_struct(torrent, index, offset, length):
 
     return struct.pack("! i b 20s i i i 20s", 20 + 20 + 4 + 4 + 4 + 1, 3, info_hash, index, offset, length, bytes([0] * 20))
 
-
-async def gather_hashes_for_torrent_test(torrent):
-    pieces_amount = torrent.piece_list_len
-    piece_size = torrent.piece_size
-    index = random.randint(0, pieces_amount - 1) # we will never ask for last piece because it may be shorter than regular piece size
-    offset = random.randint(0, piece_size) 
-    length = random.randint(0, piece_size - offset) # we will want the offset + chosen length < piece size
-
-    piece_hash_msg = gen_piece_hash_struct(torrent, index, offset, length)
-
-
-    tasks = [ask_and_wait_for_hash(peer.split(':'), piece_hash_msg) for peer in torrent.get_peers()]
-
-    results = await asyncio.gather(*tasks)
-
-    hash_counts = {}
-    for result in results:
-        if result is None:
-            continue
-
-        if result in hash_counts:
-            hash_counts[result] += 1
-        else:
-            hash_counts[result] = 1
-
-    most_common_hash = max(hash_counts, key=hash_counts.get)
-    
-    if hash_counts[most_common_hash] < (len([result for result in results if result is not None]) / 2):
-        print("too many unhonest peers, cant determine nothing")
-        return
-    
-    peer_result = dict()
-    
-    for result, peer in zip(results, torrent.get_peers()):
-        if result is None:
-            continue
-
-        peer_result[peer] = (result == most_common_hash)
-    
-    return peer_result
 
 async def ask_and_wait_for_hash(peer_addr, piece_hash_msg):
     try:
@@ -91,12 +50,67 @@ def calculate_time_difference_seconds(announce_log1: AnnounceLog, announce_log2:
     return int(time_diff.total_seconds())
 
 
+async def main_loop(torrents):
+    tasks = []
+    for torrent in torrents:
+        test = AnnounceTest(torrent)
+        test.downloadChangeTooFast()
+        test.uploadChangeTooFast()
+        test.leecherUploadTest()
+        test.seederDownloadTest()
+
+        tasks.append(test.gather_hashes_for_torrent_test())
+    
+    await asyncio.gather(*tasks)
+
 class AnnounceTest:
-    def __init__(self, torrent: TorrentLog, seeders_threshold, leechers_threshold, torrent_user_handler) -> None:
+    def __init__(self, torrent: TorrentLog, torrent_user_handler) -> None:
         self.torrent = torrent
-        self.leechers_threshold = leechers_threshold
-        self.seeders_threshold = seeders_threshold
+        self.leechers_threshold = 2 # abritary number 
+        self.seeders_threshold = 4 # abritary number
         self.torrent_user_handler = torrent_user_handler
+
+
+    async def gather_hashes_for_torrent_test(self):
+        pieces_amount = self.torrent.piece_list_len
+        piece_size = self.torrent.piece_size
+        index = random.randint(0, pieces_amount - 1) # we will never ask for last piece because it may be shorter than regular piece size
+        offset = random.randint(0, piece_size) 
+        length = random.randint(0, piece_size - offset) # we will want the offset + chosen length < piece size
+
+        piece_hash_msg = gen_piece_hash_struct(self.torrent, index, offset, length)
+
+
+        tasks = [ask_and_wait_for_hash(peer.split(':'), piece_hash_msg) for peer in self.torrent.get_peers()]
+
+        results = await asyncio.gather(*tasks)
+
+        hash_counts = {}
+        for result in results:
+            if result is None:
+                continue
+
+            if result in hash_counts:
+                hash_counts[result] += 1
+            else:
+                hash_counts[result] = 1
+
+        most_common_hash = max(hash_counts, key=hash_counts.get)
+        
+        if hash_counts[most_common_hash] < (len([result for result in results if result is not None]) / 2):
+            print("too many unhonest peers, cant determine nothing")
+            return
+        
+        peer_result = dict()
+        
+        for result, peer in zip(results, self.torrent.get_peers()):
+            if result is None:
+                continue
+
+            ip = peer.split(':')[0]
+            self.torrent_user_handler.find_by_ip(ip).add_test(result == most_common_hash)
+        
+        return peer_result
 
     def leecherUploadTest(self):
         # when torrent uploads data yet there are no leechers

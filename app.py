@@ -6,11 +6,13 @@ TODO:
 from flask import Flask, render_template, request, make_response, redirect, url_for, flash
 from logs_handler import LogHandler
 from torrent_log import TorrentLog
-
+import announce_tests
 import socket
 import threading
+import asyncio
 import udp_announce
 import hashlib
+import time
 import json
 import pathlib
 from users import Users, return_json
@@ -26,6 +28,18 @@ if settings_path.exists():
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'mysecretkey'   
 lh = LogHandler("logs.db")
+
+lh.start_update_loop()
+
+
+def _async_tests():
+    print("started test thread")
+    while True:
+        asyncio.run(announce_tests.main_loop(lh.get_torrents()))
+        time.sleep(30 * 60)
+
+
+threading.Thread(target=_async_tests).start()
 
 
 def format_size(size_in_bytes):
@@ -154,11 +168,6 @@ def delete_torrent(torrent_name):
         flash("Torrent has been successfully deleted.", "success")
     
     return redirect(url_for('show_torrents'))
-
-
-
-
-
 
     
 
