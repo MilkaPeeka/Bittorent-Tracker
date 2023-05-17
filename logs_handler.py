@@ -13,7 +13,7 @@ class LogHandler:
         self.torrent_list = self.torrent_db.action_to_db(self.torrent_db.fetch_all)
 
         self.user_db = dctodb(User, db_filename)
-        self.user_list = self.torrent_db.user_db(self.user_db.fetch_all)
+        self.user_list = self.torrent_db.action_to_db(self.user_db.fetch_all)
 
     def add_torrent(self, torrent_log: TorrentLog):
         old_index = torrent_log.index
@@ -35,6 +35,9 @@ class LogHandler:
             self.user_db.append(user)
             return True
         return False
+    
+    def get_users(self):
+        return self.user_list
     
     def delete_torrent(self, to_delete):
         self.torrent_list.remove(to_delete)

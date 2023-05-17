@@ -165,7 +165,7 @@ def delete_torrent(torrent_name):
 @app.route('/show_users')
 def show_users():
     users_handler = Users(lh)
-    users = return_json(users_handler.build_user_list_from_torrents())
+    users = return_json(users_handler.build_user_dict_from_torrents())
     return render_template('show_users.html', users=users)
 
 

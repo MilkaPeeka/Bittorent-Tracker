@@ -1,4 +1,3 @@
-from logs_handler import LogHandler
 from dataclasses import dataclass
 
 @dataclass
@@ -10,26 +9,22 @@ class User:
 
 
 class Users:
-    def __init__(self, log_handler: LogHandler, user_handler: UserHandler) -> None:
-        self.log_handler = log_handler
-        self.user_handler = user_handler
+    def __init__(self, torrent_log_and_user_handler) -> None:
+        self.torrent_log_and_user_handler = torrent_log_and_user_handler
 
-    def test_users(self):
-        
-            get_announcement_peers
 
     def build_user_dict_from_torrents(self):
         # builds the user list from torrents
 
-        users = {user:list() for user in self.user_handler.get_users()}
-        for torrent in self.log_handler.get_torrents():
+        users = {user:list() for user in self.torrent_log_and_user_handler.get_users()}
+        for torrent in self.torrent_log_and_user_handler.get_torrents():
             for peer in torrent.get_peers():
                 if peer in [user.addr for user in users.keys()]:
                     self.users[peer].append(torrent)
                 else:
                     # we will create a user object if thats a new peer
                     self.users[peer] = [torrent]
-                    self.user_handler.add(User(peer))
+                    self.torrent_log_and_user_handler.add_user(User(peer))
 
         return users
         
