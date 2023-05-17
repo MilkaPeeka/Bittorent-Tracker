@@ -1,10 +1,12 @@
 from logs_handler import LogHandler
+from dataclasses import dataclass
 
+@dataclass
 class User:
-    def __init__(self, addr) -> None:
-        self.addr = addr
-        self.fake_ratio = 0
-        self.tests_count = 0
+    addr: str
+    fake_ratio: int = 0
+    tests_count: int = 0
+    index: int = 0
 
 
 class Users:
@@ -13,10 +15,8 @@ class Users:
         self.user_handler = user_handler
 
     def test_users(self):
-        for user in self.user_handler.get_users():
-
-
-            
+        
+            get_announcement_peers
 
     def build_user_dict_from_torrents(self):
         # builds the user list from torrents

@@ -1,37 +1,11 @@
-"""
-We have a total of 96 announcements (48 hours of announcements)
 
-Assumptions:
-1. 
-
-Suggested tests:
-
-1. If upload when there are no leechers #DONE
-2. If download with no seeders #DONE
-3. If consistently downloading fast with not a lot of seeders #DONE
-4. If upload amount is ridciously high compared to leechers amount #DONE
-5. If sole uploader yet the leecher download status does not update # DONE
-6. If sole leecher yet no one uploads # DONE
-
-
-how can we know it not really downloading?
-
-
-
-torrentX suggested tests:
-
-1. request hash of a random piece and compare it 
-2. for downloaders - requests a peer table and compare it with the stored table in the tracker;
- 
-
-"""
 from torrent_log import TorrentLog
 from typing import List
 from announce_log import AnnounceLog
 import aioudp
 import struct
 import asyncio
-
+import itertools
 import random
 
 def gen_piece_hash_struct(torrent, index, offset, length):
@@ -96,7 +70,7 @@ async def ask_and_wait_for_hash(peer_addr, piece_hash_msg):
         return None
     
 
-def get_announcements_with_matching_attribute(announce_log_list: List[AnnounceLog], attr: str, value: str) -> List[List[AnnounceLog]]:
+def get_announcements_in_a_row_with_matching_attribute(announce_log_list: List[AnnounceLog], attr: str, value: str) -> List[List[AnnounceLog]]:
     matching_announcements = []
     i = 0
     while i < len(announce_log_list) - 1:
@@ -118,59 +92,68 @@ def calculate_time_difference_seconds(announce_log1: AnnounceLog, announce_log2:
 
 
 class AnnounceTest:
-    def __init__(self, torrent: TorrentLog, seeders_threshold, leechers_threshold) -> None:
+    def __init__(self, torrent: TorrentLog, seeders_threshold, leechers_threshold, torrent_user_handler) -> None:
         self.torrent = torrent
+        self.leechers_threshold = leechers_threshold
+        self.seeders_threshold = seeders_threshold
+        self.torrent_user_handler = torrent_user_handler
 
     def leecherUploadTest(self):
         # when torrent uploads data yet there are no leechers
         # how can we test for that? if there are 2+ announcements in a row when there are no leechers and the data is being uploaded
         # hole: if a torrent is small or upload is fast - there can be uploads that wont be recorded in the announcement
 
-        """That function currently doesnt work as expected as it doesnt count for cases when there are 0 leechers, and then there are leechers for a short period or time (thus the upload value changes even tho no cheating happened).
-        Also fitting results returns a list of lists"""
-
-        fitting_results: List[AnnounceLog] = get_announcements_with_matching_attribute(self.torrent.announcements_logs, "leechers")
-
-        if not fitting_results: # if list is len(zero) than there are no zero leechers so theres nothing to check
-            return True
-        
-
-        total_upload_data_set = set()
-        for res in fitting_results:
-            total_upload_data_set.add(res.uploaded)
+        # we will iterate over each peer in torrent list
+        # we will get all announecements for every peer
+        # if it says "leechers - 0" yet our upload data changed we will fail him
 
 
-        if len(total_upload_data_set) != 1:
-            # that means that there are non similarities
-            print(f"there are {len(total_upload_data_set)} different uploaded values for {len(fitting_results)} announcement logs. failure precentage: {round(total_upload_data_set / fitting_results), 2}")
-            return False
-        
-        return True
-    
+        for peer_ip, peer_announcements in self.torrent.get_announcement_peers().items():
+            announcements_in_a_row = get_announcements_in_a_row_with_matching_attribute(peer_announcements, 'leechers', 0)
+
+            if not announcements_in_a_row:
+                self.torrent_user_handler.find_by_ip(peer_ip).add_test(True)
+                continue
+
+            total_upload_data_set = set()
+            for res in announcements_in_a_row:
+                total_upload_data_set.add(res.uploaded)
+
+
+            if len(total_upload_data_set) != 1:
+                self.torrent_user_handler.find_by_ip(peer_ip).add_test(False)
+
+
+            else:
+                self.torrent_user_handler.find_by_ip(peer_ip).add_test(True)
+
     def seederDownloadTest(self):
         # when torrent downloads yet there are no seeders
         # how can we test for that? just as previous function - we will test with the same principals but checking for seeders\downloaded attributes
-        fitting_results: List[AnnounceLog] = get_announcements_with_matching_attribute(self.torrent.announcements_logs, "seeders")
 
-        if not fitting_results: # if list is len(zero) than there are no zero seeders so theres nothing to check as there are seeders
-            return True
-        
-        total_download_data_set = set()
-        for res in fitting_results:
-            total_download_data_set.add(res.downloaded)
+        for peer_ip, peer_announcements in self.torrent.get_announcement_peers().items():
+            announcements_in_a_row = get_announcements_in_a_row_with_matching_attribute(peer_announcements, 'seeders', 0)
+
+            if not announcements_in_a_row:
+                self.torrent_user_handler.find_by_ip(peer_ip).add_test(True)
+                continue
+
+            total_upload_data_set = set()
+            for res in announcements_in_a_row:
+                total_upload_data_set.add(res.uploaded)
 
 
-        if len(total_download_data_set) != 1:
-            # that means that there are non similarities
-            print(f"there are {len(total_download_data_set)} different downloaded values for {len(fitting_results)} announcement logs. failure precentage: {round(total_download_data_set / fitting_results), 2}")
-            return False
-        
-        return True
-    
+            if len(total_upload_data_set) != 1:
+                self.torrent_user_handler.find_by_ip(peer_ip).add_test(False)
+
+
+            else:
+                self.torrent_user_handler.find_by_ip(peer_ip).add_test(True)
+
     def downloadChangeTooFast(self):
         threshold_seeder_avarage = self.seeders_threshold 
 
-        threshold_avarage_download_speed_in_torrent_in_second = 4000 # just a number to be determined by a function
+        threshold_avarage_download_speed_in_torrent_in_second = 2**20 # abritary number. 1MB.
 
 
         for i in range(len(self.torrent.announcements_logs) - 1):
@@ -184,17 +167,16 @@ class AnnounceTest:
             if should_be_downloaded < next_record.downloaded - record.downloaded:
                 # check for how many seeders there are
                 if next_record.seeders < threshold_seeder_avarage:
-                    return False # there are not alot of seeders so it doesnt make sense that he downloaded too fast
+                    ip = next_record.peer_ip
+                    self.torrent_user_handler.find_by_ip(ip).add_test(False)
+                else:
+                    self.torrent_user_handler.find_by_ip(ip).add_test(True)
 
-
-
-        # we didnt found out of the ordinary cases, passing the test
-        return True
     
     def uploadChangeTooFast(self):
-        threshold_leecher_avarage = self.leecher_threshold
+        threshold_leecher_avarage = self.leechers_threshold
 
-        threshold_avarage_upload_speed_in_torrent_in_second = 4000 # just a number to be determined by a function
+        threshold_avarage_upload_speed_in_torrent_in_second = 4000 # just an abritray number for now. in bytes.
 
 
         for i in range(len(self.torrent.announcements_logs) - 1):
@@ -208,49 +190,7 @@ class AnnounceTest:
             if should_be_uploaded < next_record.uploaded - record.uploaded:
                 # check for how many seeders there are
                 if next_record.leechers < threshold_leecher_avarage:
-                    return False # there are not alot of seeders so it doesnt make sense that he downloaded too fast
-
-
-
-        # we didnt found out of the ordinary cases, passing the test
-        return True
-    
-
-    def uploadToNoOne(self):
-        # checking if user suggests to upload yet there are no seeders
-
-        for i in range(len(self.torrent.announcements_logs) - 1):
-            record = self.torrent.announcements_logs[i]
-            next_record = self.torrent.announcements_logs[i+1]
-
-            if next_record.uploaded - record.uploaded > 0:
-                if next_record.leechers == 0 or record.leechers == 0:
-                    return False
-                
+                    ip = next_record.peer_ip
+                    self.torrent_user_handler.find_by_ip(ip).add_test(False)
                 else:
-                    for leecher in record.peers:
-                        if not tracketTests.checkIsPeer(leecher):
-                            return False
-
-        return True
-    
-
-    def downloadFromoNoOne(self):
-        # checking if user suggests to upload yet there are no seeders
-
-        for i in range(len(self.torrent.announcements_logs) - 1):
-            record = self.torrent.announcements_logs[i]
-            next_record = self.torrent.announcements_logs[i+1]
-
-            if next_record.downloaded - record.downloaded > 0:
-                if next_record.seeders == 0 or record.seeders == 0:
-                    return False
-                            
-                else:
-                    for seeder in record.peers:
-                        if not tracketTests.checkIsPeer(seeder):
-                            return False
-            
-
-        return True
-    
+                    self.torrent_user_handler.find_by_ip(ip).add_test(True)

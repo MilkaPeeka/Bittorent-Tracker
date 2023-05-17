@@ -1,4 +1,6 @@
 from torrent_log import TorrentLog
+from users import User
+import time
 from dctodb import dctodb
 """
 Instead of taking care of torrent handling (getting sorted list, adding torrent to list and database, remove from list and database etc)
@@ -8,33 +10,54 @@ we will create a torrent handler that will take care of that in every operation
 class LogHandler:
     def __init__(self, db_filename) -> None:
         self.torrent_db = dctodb(TorrentLog, db_filename)
-        self.torrent_list = self.torrent_db.fetch_all()
+        self.torrent_list = self.torrent_db.action_to_db(self.torrent_db.fetch_all)
+
+        self.user_db = dctodb(User, db_filename)
+        self.user_list = self.torrent_db.user_db(self.user_db.fetch_all)
 
     def add_torrent(self, torrent_log: TorrentLog):
         old_index = torrent_log.index
 
-        self.torrent_db.insert_one(torrent_log)
+        self.torrent_db.action_to_db(self.torrent_db.insert_one, (torrent_log, ))
 
         if old_index != torrent_log.index:
             self.torrent_list.append(torrent_log)
             return True
         return False
+    
 
+    def add_user(self, user: User):
+        old_index = user.index
+
+        self.torrent_db.action_to_db(self.user_db.insert_one, (user, ))
+
+        if old_index != user.index:
+            self.user_db.append(user)
+            return True
+        return False
+    
     def delete_torrent(self, to_delete):
         self.torrent_list.remove(to_delete)
-        self.torrent_db.delete(to_delete)
+        self.torrent_db.action_to_db(self.torrent_db.delete, (to_delete, ))
+
 
     def get_torrents(self):
         return self.torrent_list
+    
+    def find_by_ip(self, ip):
+        for user in self.user_list:
+            if user.addr.split(':')[0] == ip:
+                return ip
+            
+        return None
 
-    def get_torrents_by_index(self, *indexes):
-        pass
 
-    def get_sorted_torrent_copy(self, sort_by):
-        pass
-
-    def save_torrents_to_db(self):
-        pass
+    def update_loop(self):
+        print("started io thread")
+        while True:
+            self.torrent_db.action_to_db(self.torrent_db.update, *self.torrent_list)
+            self.user_db.action_to_db(self.user_db.update, *self.user_list)
+            time.sleep(1)
 
     
 

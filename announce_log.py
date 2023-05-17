@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import datetime
 
 @dataclass
-class AnnounceLog:
+class sAnnounceLog:
     log_time: datetime.datetime
     peer_ip: str
     port: int    
