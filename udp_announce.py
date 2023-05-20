@@ -143,7 +143,7 @@ def parse_torrentx_list(msg):
     torrents = []
 
 
-    struct_list = [msg[i:i+27] for i in range(0, len(msg), 27)]
+    struct_list = [msg[i:i+37] for i in range(0, len(msg), 37)]
 
     for strct in struct_list:
          torrents.append(struct.unpack("! 20s i i i i b", strct))
@@ -156,12 +156,12 @@ async def on_torrentx_handshake(settings, local_conn, addr):
     await local_conn.drain()
 
     msg, addr = await asyncio.wait_for(local_conn.receive(), 1)
-    
+
+
     conn_id, trans_id, peer_id, port = parse_torrentx_begin(msg[:26])
     torrent_list = parse_torrentx_list(msg[26:])
-
-    announce_resp = b""
-
+      
+    announce_resp = struct.pack("! q i i", conn_id, trans_id, settings["INTERVAL"]) 
     for info_hash, seeders, leechers, downloaded, uploaded, announce_type in torrent_list:
         t = None
         for torrent in lh.get_torrents():
@@ -173,18 +173,21 @@ async def on_torrentx_handshake(settings, local_conn, addr):
             announce_resp += struct.pack("! i i ", 0, 0)
             continue
 
-        announce_log = AnnounceLog(datetime.datetime.now(), addr, port, announce_type, downloaded, uploaded, seeders, leechers)
+        announce_log = AnnounceLog(datetime.datetime.now(), addr[0], port, announce_type, downloaded, uploaded, seeders, leechers)
         t.add_announcement(announce_log)
         announce_resp += struct.pack("! i i", len(t.get_peers()), 0) # need to fix it and find out how to put both seeders and leechers
         peers = t.get_peers()
         for peer in peers:
-            announce_resp += socket.inet_aton(peer[0]) + struct.pack("! h", peer[1])
+            ip_bytes = struct.pack("! 4b", *[int(x) for x in peer[0].split(".")])
+            announce_resp += ip_bytes + struct.pack("! h", peer[1])
 
     
+    print(announce_resp)
     local_conn.send(announce_resp, addr)
     await local_conn.drain()
 
-
+#####
+    
 
 async def main(settings):
     local_conn = await aioudp.open_local_endpoint(settings["IP"], settings["PORT"])
@@ -192,7 +195,7 @@ async def main(settings):
     while True:
         try:
             msg, addr = await asyncio.wait_for(local_conn.receive(), 1)
-
+            print("got msg")
         except TimeoutError:
             msg = None
 
@@ -204,11 +207,6 @@ async def main(settings):
                 await on_torrentx_handshake(settings, local_conn, addr)
 
         await asyncio.sleep(0.4)
-
-
-
-
-
 
 def start(settings):
     asyncio.run(main(settings))

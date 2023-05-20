@@ -35,7 +35,7 @@ lh.start_update_loop()
 def _async_tests():
     print("started test thread")
     while True:
-        asyncio.run(announce_tests.main_loop(lh.get_torrents()))
+        asyncio.run(announce_tests.main_loop(lh.get_torrents(), lh))
         time.sleep(30 * 60)
 
 
@@ -131,12 +131,14 @@ def on_first_startup():
     if request.method == 'POST':
         ip_address = request.remote_addr
         port = request.form['port']
+        interval = request.form['interval']
         passw = request.form['admin_password']
 
         global settings
 
         settings = {"IP": ip_address,
                     "PORT": int(port),
+                    "INTERVAL": interval,
                     "PASS_HASH": hashlib.sha256(passw.encode()).hexdigest()}
         
         with open(settings_path, "w") as f:

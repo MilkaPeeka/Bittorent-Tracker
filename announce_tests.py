@@ -50,10 +50,10 @@ def calculate_time_difference_seconds(announce_log1: AnnounceLog, announce_log2:
     return int(time_diff.total_seconds())
 
 
-async def main_loop(torrents):
+async def main_loop(torrents, tu_handler):
     tasks = []
     for torrent in torrents:
-        test = AnnounceTest(torrent)
+        test = AnnounceTest(torrent, tu_handler)
         test.downloadChangeTooFast()
         test.uploadChangeTooFast()
         test.leecherUploadTest()
@@ -84,6 +84,9 @@ class AnnounceTest:
         tasks = [ask_and_wait_for_hash(peer.split(':'), piece_hash_msg) for peer in self.torrent.get_peers()]
 
         results = await asyncio.gather(*tasks)
+
+        if not results:
+            return None
 
         hash_counts = {}
         for result in results:

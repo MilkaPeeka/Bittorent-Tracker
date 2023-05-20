@@ -6,7 +6,7 @@ import datetime
 
 
 def _create_connection(db_filename) -> sqlite3.Connection:
-    return sqlite3.connect(db_filename)
+    return sqlite3.connect(db_filename, check_same_thread=False)
 
 
 def _split_fields(dc) -> Tuple[List[Any]]:

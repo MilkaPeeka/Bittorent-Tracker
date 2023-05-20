@@ -19,7 +19,7 @@ class LogHandler:
     def add_torrent(self, torrent_log: TorrentLog):
         old_index = torrent_log.index
 
-        self.torrent_db.action_to_db(self.torrent_db.insert_one, (torrent_log, ))
+        self.torrent_db.action_to_db(self.torrent_db.insert_one, torrent_log)
 
         if old_index != torrent_log.index:
             self.torrent_list.append(torrent_log)
@@ -30,7 +30,7 @@ class LogHandler:
     def add_user(self, user: User):
         old_index = user.index
 
-        self.torrent_db.action_to_db(self.user_db.insert_one, (user, ))
+        self.torrent_db.action_to_db(self.user_db.insert_one, user)
 
         if old_index != user.index:
             self.user_db.append(user)
@@ -42,7 +42,7 @@ class LogHandler:
     
     def delete_torrent(self, to_delete):
         self.torrent_list.remove(to_delete)
-        self.torrent_db.action_to_db(self.torrent_db.delete, (to_delete, ))
+        self.torrent_db.action_to_db(self.torrent_db.delete, to_delete)
 
 
     def get_torrents(self):
