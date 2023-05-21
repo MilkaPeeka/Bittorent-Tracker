@@ -160,7 +160,7 @@ async def on_torrentx_handshake(settings, local_conn, addr):
 
     conn_id, trans_id, peer_id, port = parse_torrentx_begin(msg[:26])
     torrent_list = parse_torrentx_list(msg[26:])
-      
+    
     announce_resp = struct.pack("! q i i", conn_id, trans_id, settings["INTERVAL"]) 
     for info_hash, seeders, leechers, downloaded, uploaded, announce_type in torrent_list:
         t = None
@@ -177,8 +177,9 @@ async def on_torrentx_handshake(settings, local_conn, addr):
         t.add_announcement(announce_log)
         announce_resp += struct.pack("! i i", len(t.get_peers()), 0) # need to fix it and find out how to put both seeders and leechers
         peers = t.get_peers()
+        print(peers)
         for peer in peers:
-            ip_bytes = struct.pack("! 4b", *[int(x) for x in peer[0].split(".")])
+            ip_bytes = struct.pack("! 4B", *[int(x) for x in peer[0].split(".")])
             announce_resp += ip_bytes + struct.pack("! h", peer[1])
 
     
@@ -195,7 +196,6 @@ async def main(settings):
     while True:
         try:
             msg, addr = await asyncio.wait_for(local_conn.receive(), 1)
-            print("got msg")
         except TimeoutError:
             msg = None
 
@@ -204,6 +204,7 @@ async def main(settings):
             if recv_prot_id == PROT_ID:
                 await on_regular_torrent_handshake(settings, local_conn, addr)
             elif recv_prot_id == PROT_ID+1:
+                print("torrentx handshake")
                 await on_torrentx_handshake(settings, local_conn, addr)
 
         await asyncio.sleep(0.4)

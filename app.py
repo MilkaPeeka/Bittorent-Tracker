@@ -96,7 +96,9 @@ def upload_torrent():
         torrent_name = request.form['name']
 
         added_torrent_log = TorrentLog(torrent_file, torrent_name)
-        added_torrent_log.repack("udp://" + settings["IP"] +f':{settings["PORT"]}') # replacing whatever announce url with ours
+        new_ip = "udp://" + settings["IP"] +f':{settings["PORT"]}'
+        added_torrent_log.repack(new_ip) # replacing whatever announce url with ours
+        
         lh.add_torrent(added_torrent_log)
         
         response = make_response(added_torrent_log.bencoded_info)
@@ -128,8 +130,10 @@ def show_torrents():
 def on_first_startup():
     ip_address = socket.gethostbyname(socket.getfqdn())
     port = 9889
+    interval = 600
+
     if request.method == 'POST':
-        ip_address = request.remote_addr
+        ip_address = request.form['ip_address']
         port = request.form['port']
         interval = request.form['interval']
         passw = request.form['admin_password']
@@ -138,7 +142,7 @@ def on_first_startup():
 
         settings = {"IP": ip_address,
                     "PORT": int(port),
-                    "INTERVAL": interval,
+                    "INTERVAL": int(interval),
                     "PASS_HASH": hashlib.sha256(passw.encode()).hexdigest()}
         
         with open(settings_path, "w") as f:
@@ -149,7 +153,7 @@ def on_first_startup():
 
         return redirect(url_for('show_torrents'))
 
-    return render_template('startup.html', ip_address=ip_address, port=port)
+    return render_template('startup.html', ip_address=ip_address, port=port, interval = interval)
 
 
 
